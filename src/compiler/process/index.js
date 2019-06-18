@@ -1,5 +1,7 @@
 import { spawn } from 'child_process';
 import { join } from 'path';
+import { getFreePort } from 'endpoint-utils';
+import cri from 'chrome-remote-interface';
 import testRunTracker from '../../api/test-run-tracker';
 import RequestHookProxy from './request-hook-proxy';
 import Transmitter from './transmitter';
@@ -42,13 +44,17 @@ export default class CompilerProcess extends EE {
 
         this.debugInfo = this._getDebugInfo(v8Flags);
 
-        this.cp = spawn(process.argv0, [ ...v8Flags, join(__dirname, 'child.js')], { stdio: [0, 1, 2, 'pipe', 'pipe', 'pipe'] });
+        this.cp = spawn(process.argv0, [ `--inspect=${this.debugInfo.port}:${this.debugInfo.port}`, ...v8Flags, join(__dirname, 'child.js')], { stdio: [0, 1, 2, 'pipe', 'pipe', 'pipe'] });
+
+        this.cri = cri({ port: this.debugInfo.port });
 
         global.cp = this.cp;
 
         this.transmitter = new Transmitter(new ParentTransport(this.cp));
 
         this.transmitter.on('test-file-added', ({ filename }) => this.emit('test-file-added', filename));
+
+        this.transmitter.on('debug', () => this.stopTests());
 
         this.transmitter.on('execute-command', data => {
             if (!testRunTracker.activeTestRuns[data.id])
@@ -104,13 +110,19 @@ export default class CompilerProcess extends EE {
     }
 
     _getDebugInfo (v8Flags) {
-        const debugInfo = { host: '127.0.0.1', port: '9229' };
+        const debugInfo = { host: '127.0.0.1', port: '', isDefault: true, stopOnStart: false };
 
         const inspectFlags = v8Flags.filter(flag => flag.startsWith('--inspect'));
         const inspectFlag  = inspectFlags[0];
 
-        if (!inspectFlag)
-            return null;
+        if (!inspectFlag) {
+            debugInfo.port = String(getFreePort());
+
+            return debugInfo;
+        }
+
+        debugInfo.isDefault = false;
+        debugInfo.stopOnStart = inspectFlag.includes('brk');
 
         const inspectFlagParsed = inspectFlag.match(/=([^:\d]*)?:?(\d+)?$/);
 
@@ -118,6 +130,8 @@ export default class CompilerProcess extends EE {
             debugInfo.host = inspectFlagParsed[1] || debugInfo.host;
             debugInfo.port = inspectFlagParsed[2] || debugInfo.port;
         }
+        else
+            debugInfo.port = '9229';
 
         return debugInfo;
     }
@@ -170,6 +184,10 @@ export default class CompilerProcess extends EE {
         });
 
         return tests;
+    }
+
+    async stopTests () {
+
     }
 
     async runTest (idx, actor, testRunId, func) {

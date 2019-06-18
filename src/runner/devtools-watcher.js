@@ -25,8 +25,8 @@ export default class DevToolsWatcher {
                 if (!message.text.startsWith('Main._initializeTarget'))
                     return;
 
-                    await devToolsClient.Runtime.enable();
-                    await devToolsClient.Runtime.evaluate({expression: `(${DevToolsInjector.toString()}).inject(${JSON.stringify(this.debugInfo.host)}, ${this.debugInfo.port}, '')`});
+                await devToolsClient.Runtime.enable();
+                await devToolsClient.Runtime.evaluate({expression: `(${DevToolsInjector.toString()}).inject(${JSON.stringify(this.debugInfo.host)}, ${this.debugInfo.port}, '')`});
             });
         });
     }
