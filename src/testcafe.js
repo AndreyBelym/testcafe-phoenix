@@ -100,6 +100,10 @@ export default class TestCafe {
         return this._createRunner(true);
     }
 
+    async init () {
+        await this.compilerHost.init();
+    }
+
     async close () {
         if (this.closed)
             return;

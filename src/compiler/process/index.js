@@ -1,3 +1,5 @@
+import path from 'path';
+import url from 'url';
 import { spawn } from 'child_process';
 import { join } from 'path';
 import { getFreePort } from 'endpoint-utils';
@@ -8,7 +10,9 @@ import Transmitter from './transmitter';
 import EE from '../../utils/async-event-emitter';
 import { UseRoleCommand } from '../../test-run/commands/actions';
 import { createRole } from '../../role';
+import { DebugCommand } from '../../test-run/commands/observation';
 
+const INTERNAL_FILES_URL = url.pathToFileURL(path.join(__dirname, '../../'));
 
 class ParentTransport extends EE {
     constructor (cp) {
@@ -40,18 +44,42 @@ export default class CompilerProcess extends EE {
     constructor (v8Flags) {
         super();
 
-        v8Flags = v8Flags || [];
+        this.v8Flags = v8Flags || [];
 
-        this.debugInfo = this._getDebugInfo(v8Flags);
+        this.debugInfo = null;
+        this.cp = null;
+        this.cri = null;
+        this.transmitter = null;
+    }
 
-        this.cp = spawn(process.argv0, [ `--inspect=${this.debugInfo.port}:${this.debugInfo.port}`, ...v8Flags, join(__dirname, 'child.js')], { stdio: [0, 1, 2, 'pipe', 'pipe', 'pipe'] });
+    async _getDebugInfo (v8Flags) {
+        const debugInfo = { host: '127.0.0.1', port: '', isDefault: true, stopOnStart: false };
 
-        this.cri = cri({ port: this.debugInfo.port });
+        const inspectFlags = v8Flags.filter(flag => flag.startsWith('--inspect'));
+        const inspectFlag  = inspectFlags[0];
 
-        global.cp = this.cp;
+        if (!inspectFlag) {
+            debugInfo.port = String(await getFreePort());
 
-        this.transmitter = new Transmitter(new ParentTransport(this.cp));
+            return debugInfo;
+        }
 
+        debugInfo.isDefault = false;
+        debugInfo.stopOnStart = inspectFlag.includes('brk');
+
+        const inspectFlagParsed = inspectFlag.match(/=([^:\d]*)?:?(\d+)?$/);
+
+        if (inspectFlagParsed) {
+            debugInfo.host = inspectFlagParsed[1] || debugInfo.host;
+            debugInfo.port = inspectFlagParsed[2] || debugInfo.port;
+        }
+        else
+            debugInfo.port = '9229';
+
+        return debugInfo;
+    }
+
+    _setupRoutes () {
         this.transmitter.on('test-file-added', ({ filename }) => this.emit('test-file-added', filename));
 
         this.transmitter.on('debug', () => this.stopTests());
@@ -106,34 +134,57 @@ export default class CompilerProcess extends EE {
                 testRun.removeRequestHook(testRun.requestHooks[hook.id]);
             });
         });
-
     }
 
-    _getDebugInfo (v8Flags) {
-        const debugInfo = { host: '127.0.0.1', port: '', isDefault: true, stopOnStart: false };
+    _setupDebuggerHandlers () {
+        this.cri.on('Debugger.paused', ({callFrames}) => {
+            Object.values(testRunTracker.activeTestRuns).forEach(testRun => {
+                if (!testRun.debugging)
+                    testRun.executeCommand(new DebugCommand())
+            });
+            if (callFrames[0].url.indexOf(INTERNAL_FILES_URL) >= 0)
+                 this.cri.Debugger.stepOut();
+        });
 
-        const inspectFlags = v8Flags.filter(flag => flag.startsWith('--inspect'));
-        const inspectFlag  = inspectFlags[0];
+        this.cri.on('Debugger.resumed', () => {
+            Object.values(testRunTracker.activeTestRuns).forEach(testRun => {
+                testRun.debugging = false;
+            });
+        });
 
-        if (!inspectFlag) {
-            debugInfo.port = String(getFreePort());
+        this.cri.on('Target.attachedToTarget', result => {
+            console.log('attached', result);
+        });
+    }
 
-            return debugInfo;
-        }
+    async init () {
+        this.debugInfo = await this._getDebugInfo(this.v8Flags);
 
-        debugInfo.isDefault = false;
-        debugInfo.stopOnStart = inspectFlag.includes('brk');
+        this.cp = spawn(process.argv0, [ `--inspect-brk=${this.debugInfo.host}:${this.debugInfo.port}`, ...this.v8Flags, join(__dirname, 'child.js')], { stdio: [0, 1, 2, 'pipe', 'pipe', 'pipe'] });
 
-        const inspectFlagParsed = inspectFlag.match(/=([^:\d]*)?:?(\d+)?$/);
+        this.transmitter = new Transmitter(new ParentTransport(this.cp));
 
-        if (inspectFlagParsed) {
-            debugInfo.host = inspectFlagParsed[1] || debugInfo.host;
-            debugInfo.port = inspectFlagParsed[2] || debugInfo.port;
-        }
-        else
-            debugInfo.port = '9229';
+        this._setupRoutes();
 
-        return debugInfo;
+        await new Promise(r => setTimeout(r, 2000));
+
+        this.cri = await cri({ port: this.debugInfo.port });
+
+        this._setupDebuggerHandlers();
+
+        await this.cri.Debugger.enable();
+
+        await this.cri.Runtime.enable();
+
+        await this.cri.Runtime.runIfWaitingForDebugger();
+
+        await this.cri.Debugger.paused();
+
+        // const { result: debugFunction } = await this.cri.Runtime.evaluate({ expression: `global.process.mainModule.require('../../api/test-controller').prototype.debug` });
+        //
+        // console.log(debugFunction);
+        //
+        // console.log(await this.cri.Debugger.setBreakpointOnFunctionCall({ objectId: debugFunction.objectId }));
     }
 
     async getTests (sources) {
@@ -186,7 +237,7 @@ export default class CompilerProcess extends EE {
         return tests;
     }
 
-    async stopTests () {
+    async pauseTests () {
 
     }
 

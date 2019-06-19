@@ -8,13 +8,14 @@ const page = new Page();
 
 // Tests
 test.only('Text typing basics', async t => {
+    debugger;
+
     await t
         .typeText(page.nameInput, 'Peter') // Type name
         .typeText(page.nameInput, 'Paker', { replace: true }) // Replace with last name
 
-    debugger;
 
-    await t.debug();
+    t.debug();
 
     await t
         .typeText(page.nameInput, 'r', { caretPos: 2 }) // Correct last name

@@ -465,11 +465,12 @@ export default class Driver {
     }
 
     _onSetBreakpointCommand (isTestError) {
-        this.statusBar.showDebuggingStatus(isTestError)
-            .then(stopAfterNextAction => this._onReady(new DriverStatus({
-                isCommandResult: true,
-                result:          stopAfterNextAction
-            })));
+        this.statusBar.showDebuggingStatus(isTestError);
+
+        this._onReady(new DriverStatus({
+            isCommandResult: true,
+            result: true
+        }));
     }
 
     _onSetTestSpeedCommand (command) {

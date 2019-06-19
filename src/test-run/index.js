@@ -374,6 +374,7 @@ export default class TestRun extends AsyncEventEmitter {
         debugLogger.showBreakpoint(this.session.id, this.browserConnection.userAgent, callsite, error);
 
         this.debugging = await this.executeCommand(new serviceCommands.SetBreakpointCommand(!!error), callsite);
+        console.log(this.debugging);
     }
 
     _removeAllNonServiceTasks () {

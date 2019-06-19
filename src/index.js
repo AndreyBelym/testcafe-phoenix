@@ -63,6 +63,8 @@ async function createTestCafe (hostname, port1, port2, sslOptions, developmentMo
 
     setupExitHook(cb => testcafe.close().then(cb));
 
+    await testcafe.init();
+
     return testcafe;
 }
 

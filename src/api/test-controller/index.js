@@ -273,10 +273,6 @@ export default class TestController {
         return new Assertion(actual, this, callsite);
     }
 
-    _debug$ () {
-        return this._enqueueCommand('debug', DebugCommand);
-    }
-
     _setTestSpeed$ (speed) {
         return this._enqueueCommand('setTestSpeed', SetTestSpeedCommand, { speed });
     }
@@ -309,6 +305,12 @@ export default class TestController {
 
             return () => this.testRun.removeRequestHooks(hooks);
         });
+    }
+
+    get debug () {
+        debugger;
+
+        return () => {};
     }
 }
 
