@@ -21,12 +21,12 @@ class TestRunMock {
         };
     }
 
-    async addRequestHooks (hooks) {
-        return await this.dispatcher.addRequestHooks({ id: this.id, hooks });
+    addRequestHooks (hooks) {
+        return this.dispatcher.addRequestHooks({ id: this.id, hooks });
     }
 
-    async removeRequestHooks (hooks) {
-        return await this.dispatcher.removeRequestHooks({ id: this.id, hooks });
+    removeRequestHooks (hooks) {
+        return this.dispatcher.removeRequestHooks({ id: this.id, hooks });
     }
 
     _executeAssertion (command, callsite) {
@@ -40,8 +40,8 @@ class TestRunMock {
         return executor.run();
     }
 
-    async useRole (role) {
-        await this.dispatcher.useRole({ id: this.id, role });
+    useRole (role) {
+        this.dispatcher.useRole({ id: this.id, role });
     }
 
     executeCommandSync (command, callsite) {

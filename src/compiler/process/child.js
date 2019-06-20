@@ -201,7 +201,7 @@ class CompilerDispatcher {
         return void 0;
     }
 
-    async useRole ({ id, role }) {
+    useRole ({ id, role }) {
         const roleData = { ...role };
 
         this.state.roles[role.id] = role;
@@ -211,10 +211,10 @@ class CompilerDispatcher {
 
         roleData.initFn = !!roleData.initFn;
 
-        return await this.transmitter.send('use-role', { id, role: roleData });
+        return this.transmitter.sendSync('use-role', { id, role: roleData });
     }
 
-    async addRequestHooks ({ id, hooks }) {
+    addRequestHooks ({ id, hooks }) {
         hooks.forEach(hook => {
             this.state.requestHooks[hook.id] = hook;
 
@@ -227,11 +227,11 @@ class CompilerDispatcher {
             hook.requestFilterRules = hook.requestFilterRules.map(genRule);
         });
 
-        await this.transmitter.send('add-request-hooks', { id, hooks });
+        this.transmitter.sendSync('add-request-hooks', { id, hooks });
     }
 
-    async removeRequestHooks ({ id, hooks }) {
-        await this.transmitter.send('remove-request-hooks', { id, hooks });
+    removeRequestHooks ({ id, hooks }) {
+        this.transmitter.sendSync('remove-request-hooks', { id, hooks });
     }
 }
 

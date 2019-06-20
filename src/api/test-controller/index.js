@@ -66,8 +66,8 @@ export default class TestController {
             inDebug = false;
             return true;
         }
-        
-        if (command === 'debug') 
+
+        if (command === 'debug')
             return true;
 
         return false;
@@ -263,19 +263,19 @@ export default class TestController {
     }
 
     _resizeWindowToFitDevice$ (device, options) {
-        return this._enqueueCommand('resizeWindowToFitDevice', ResizeWindowToFitDeviceCommand, { device, options });
+        return this._enqueueCommandSync('resizeWindowToFitDevice', ResizeWindowToFitDeviceCommand, { device, options });
     }
 
     _maximizeWindow$ () {
-        return this._enqueueCommand('maximizeWindow', MaximizeWindowCommand);
+        return this._enqueueCommandSync('maximizeWindow', MaximizeWindowCommand);
     }
 
     _switchToIframe$ (selector) {
-        return this._enqueueCommand('switchToIframe', SwitchToIframeCommand, { selector });
+        return this._enqueueCommandSync('switchToIframe', SwitchToIframeCommand, { selector });
     }
 
     _switchToMainWindow$ () {
-        return this._enqueueCommand('switchToMainWindow', SwitchToMainWindowCommand);
+        return this._enqueueCommandSync('switchToMainWindow', SwitchToMainWindowCommand);
     }
 
     _eval$ (fn, options) {
@@ -289,7 +289,7 @@ export default class TestController {
     }
 
     _setNativeDialogHandler$ (fn, options) {
-        return this._enqueueCommand('setNativeDialogHandler', SetNativeDialogHandlerCommand, {
+        return this._enqueueCommandSync('setNativeDialogHandler', SetNativeDialogHandlerCommand, {
             dialogHandler: { fn, options }
         });
     }
@@ -297,13 +297,13 @@ export default class TestController {
     _getNativeDialogHistory$ () {
         const callsite = getCallsiteForMethod('getNativeDialogHistory');
 
-        return this.testRun.executeCommand(new GetNativeDialogHistoryCommand(), callsite);
+        return this.testRun.executeCommandSync(new GetNativeDialogHistoryCommand(), callsite);
     }
 
     _getBrowserConsoleMessages$ () {
         const callsite = getCallsiteForMethod('getBrowserConsoleMessages');
 
-        return this.testRun.executeCommand(new GetBrowserConsoleMessagesCommand(), callsite);
+        return this.testRun.executeCommandSync(new GetBrowserConsoleMessagesCommand(), callsite);
     }
 
     _expect$ (actual) {
@@ -313,37 +313,37 @@ export default class TestController {
     }
 
     _setTestSpeed$ (speed) {
-        return this._enqueueCommand('setTestSpeed', SetTestSpeedCommand, { speed });
+        return this._enqueueCommandSync('setTestSpeed', SetTestSpeedCommand, { speed });
     }
 
     _setPageLoadTimeout$ (duration) {
-        return this._enqueueCommand('setPageLoadTimeout', SetPageLoadTimeoutCommand, { duration });
+        return this._enqueueCommandSync('setPageLoadTimeout', SetPageLoadTimeoutCommand, { duration });
     }
 
     _useRole$ (role) {
-        return this._enqueueTask('useRole', () => {
-            return () => this.testRun.useRole(role);
-        });
+        this.testRun.useRole(role);
+
+        return this;
     }
 
     _addRequestHooks$ (...hooks) {
-        return this._enqueueTask('addRequestHooks', () => {
-            hooks = flatten(hooks);
+        hooks = flatten(hooks);
 
-            assertRequestHookType(hooks);
+        assertRequestHookType(hooks);
 
-            return () => this.testRun.addRequestHooks(hooks);
-        });
+        this.testRun.addRequestHooks(hooks);
+
+        return this;
     }
 
     _removeRequestHooks$ (...hooks) {
-        return this._enqueueTask('removeRequestHooks', () => {
-            hooks = flatten(hooks);
+        hooks = flatten(hooks);
 
-            assertRequestHookType(hooks);
+        assertRequestHookType(hooks);
 
-            return () => this.testRun.removeRequestHooks(hooks);
-        });
+        this.testRun.removeRequestHooks(hooks);
+
+        return this;
     }
 
     _debug$ () {
