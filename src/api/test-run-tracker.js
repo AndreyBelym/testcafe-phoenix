@@ -1,11 +1,13 @@
 import getStackFrames from 'callsite';
 import BabelPromise from 'babel-runtime/core-js/promise';
 
+import EE from '../utils/async-event-emitter';
+
 const TRACKING_MARK_RE = /^\$\$testcafe_test_run\$\$(\S+)\$\$$/;
 const STACK_CAPACITY   = 5000;
 
 // Tracker
-export default {
+export default Object.assign(new EE(), {
     enabled: false,
 
     activeTestRuns: {},
@@ -95,9 +97,15 @@ export default {
         return null;
     },
 
+    addActiveTestRun (testRun) {
+        this.activeTestRuns[testRun.id] = testRun;
+
+        testRun.onAny((eventName, eventData) => this.emit(eventName, { testRun, data: eventData }));
+    },
+
     resolveContextTestRun () {
         const testRunId = this.getContextTestRunId();
 
         return this.activeTestRuns[testRunId];
     }
-};
+});

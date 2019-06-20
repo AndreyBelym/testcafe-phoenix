@@ -125,7 +125,7 @@ export default class ClientFunctionBuilder {
         // correct callsite in case of replicator error.
         const command = this.getCommand(args);
 
-        return ReExecutablePromise.fromFn(async () => {
+        return ReExecutablePromise.fromFn(() => {
             if (!testRun) {
                 const err = new ClientFunctionAPIError(this.callsiteNames.execution, this.callsiteNames.instantiation, RUNTIME_ERRORS.clientFunctionCannotResolveTestRun);
 
@@ -136,7 +136,7 @@ export default class ClientFunctionBuilder {
                 throw err;
             }
 
-            const result = await testRun.executeCommand(command, callsite);
+            const result = testRun.executeCommandSync(command, callsite);
 
             return this._processResult(result, args);
         });

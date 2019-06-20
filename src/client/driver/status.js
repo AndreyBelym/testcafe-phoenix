@@ -13,6 +13,7 @@ export default class DriverStatus extends Assignable {
         this.resent          = false;
         this.result          = null;
         this.consoleMessages = null;
+        this.debug           = null;
 
         this._assignFrom(obj, true);
     }
@@ -23,6 +24,7 @@ export default class DriverStatus extends Assignable {
             { name: 'executionError' },
             { name: 'pageError' },
             { name: 'result' },
+            { name: 'debug' },
             { name: 'consoleMessages' }
         ];
     }

@@ -517,7 +517,7 @@ export default class StatusBar extends serviceUtils.EventEmitter {
                 const isNextButton = domUtils.containsElement(this.nextButton, e.target);
 
                 this._resetState();
-                resolve(isNextButton);
+                resolve(isNextButton ? 'step' : 'resume');
             });
         });
     }

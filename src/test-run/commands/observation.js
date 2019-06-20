@@ -58,3 +58,9 @@ export class DebugCommand {
     }
 }
 
+export class DisableDebugCommand {
+    constructor () {
+        this.type = TYPE.disableDebug;
+    }
+}
+

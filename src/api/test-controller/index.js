@@ -44,11 +44,33 @@ import clientFunctionModeSwitcher from '../../client-functions/client-function-m
 
 const originalThen = Promise.resolve().then;
 
+let inDebug = false;
+
 export default class TestController {
     constructor (testRun) {
         this.testRun               = testRun;
         this.executionChain        = Promise.resolve();
         this.callsitesWithoutAwait = new Set();
+    }
+
+    static enableDebug () {
+        inDebug = true;
+    }
+
+    static disableDebug () {
+        inDebug = false;
+    }
+
+    shouldStop (command) {
+        if (inDebug && command !== 'debug') {
+            inDebug = false;
+            return true;
+        }
+        
+        if (command === 'debug') 
+            return true;
+
+        return false;
     }
 
     // NOTE: we track missing `awaits` by exposing a special custom Promise to user code.
@@ -111,6 +133,23 @@ export default class TestController {
         });
     }
 
+    _enqueueCommandSync (apiMethodName, CmdCtor, cmdArgs) {
+        const callsite = getCallsiteForMethod(apiMethodName);
+        let command = null;
+
+        try {
+            command = new CmdCtor(cmdArgs, this.testRun);
+        }
+        catch (err) {
+            err.callsite = callsite;
+            throw err;
+        }
+
+        this.testRun.executeCommandSync(command, callsite);
+
+        return this;
+    }
+
     // API implementation
     // We need implementation methods to obtain correct callsites. If we use plain API
     // methods in chained wrappers then we will have callsite for the wrapped method
@@ -130,39 +169,39 @@ export default class TestController {
     }
 
     _click$ (selector, options) {
-        return this._enqueueCommand('click', ClickCommand, { selector, options });
+        return this._enqueueCommandSync('click', ClickCommand, { selector, options });
     }
 
     _rightClick$ (selector, options) {
-        return this._enqueueCommand('rightClick', RightClickCommand, { selector, options });
+        return this._enqueueCommandSync('rightClick', RightClickCommand, { selector, options });
     }
 
     _doubleClick$ (selector, options) {
-        return this._enqueueCommand('doubleClick', DoubleClickCommand, { selector, options });
+        return this._enqueueCommandSync('doubleClick', DoubleClickCommand, { selector, options });
     }
 
     _hover$ (selector, options) {
-        return this._enqueueCommand('hover', HoverCommand, { selector, options });
+        return this._enqueueCommandSync('hover', HoverCommand, { selector, options });
     }
 
     _drag$ (selector, dragOffsetX, dragOffsetY, options) {
-        return this._enqueueCommand('drag', DragCommand, { selector, dragOffsetX, dragOffsetY, options });
+        return this._enqueueCommandSync('drag', DragCommand, { selector, dragOffsetX, dragOffsetY, options });
     }
 
     _dragToElement$ (selector, destinationSelector, options) {
-        return this._enqueueCommand('dragToElement', DragToElementCommand, { selector, destinationSelector, options });
+        return this._enqueueCommandSync('dragToElement', DragToElementCommand, { selector, destinationSelector, options });
     }
 
     _typeText$ (selector, text, options) {
-        return this._enqueueCommand('typeText', TypeTextCommand, { selector, text, options });
+        return this._enqueueCommandSync('typeText', TypeTextCommand, { selector, text, options });
     }
 
     _selectText$ (selector, startPos, endPos, options) {
-        return this._enqueueCommand('selectText', SelectTextCommand, { selector, startPos, endPos, options });
+        return this._enqueueCommandSync('selectText', SelectTextCommand, { selector, startPos, endPos, options });
     }
 
     _selectTextAreaContent$ (selector, startLine, startPos, endLine, endPos, options) {
-        return this._enqueueCommand('selectTextAreaContent', SelectTextAreaContentCommand, {
+        return this._enqueueCommandSync('selectTextAreaContent', SelectTextAreaContentCommand, {
             selector,
             startLine,
             startPos,
@@ -173,7 +212,7 @@ export default class TestController {
     }
 
     _selectEditableContent$ (startSelector, endSelector, options) {
-        return this._enqueueCommand('selectEditableContent', SelectEditableContentCommand, {
+        return this._enqueueCommandSync('selectEditableContent', SelectEditableContentCommand, {
             startSelector,
             endSelector,
             options
@@ -181,27 +220,27 @@ export default class TestController {
     }
 
     _pressKey$ (keys, options) {
-        return this._enqueueCommand('pressKey', PressKeyCommand, { keys, options });
+        return this._enqueueCommandSync('pressKey', PressKeyCommand, { keys, options });
     }
 
     _wait$ (timeout) {
-        return this._enqueueCommand('wait', WaitCommand, { timeout });
+        return this._enqueueCommandSync('wait', WaitCommand, { timeout });
     }
 
     _navigateTo$ (url) {
-        return this._enqueueCommand('navigateTo', NavigateToCommand, { url });
+        return this._enqueueCommandSync('navigateTo', NavigateToCommand, { url });
     }
 
     _setFilesToUpload$ (selector, filePath) {
-        return this._enqueueCommand('setFilesToUpload', SetFilesToUploadCommand, { selector, filePath });
+        return this._enqueueCommandSync('setFilesToUpload', SetFilesToUploadCommand, { selector, filePath });
     }
 
     _clearUpload$ (selector) {
-        return this._enqueueCommand('clearUpload', ClearUploadCommand, { selector });
+        return this._enqueueCommandSync('clearUpload', ClearUploadCommand, { selector });
     }
 
     _takeScreenshot$ (path) {
-        return this._enqueueCommand('takeScreenshot', TakeScreenshotCommand, { path });
+        return this._enqueueCommandSync('takeScreenshot', TakeScreenshotCommand, { path });
     }
 
     _takeElementScreenshot$ (selector, ...args) {
@@ -216,11 +255,11 @@ export default class TestController {
         else
             commandArgs.path = args[0];
 
-        return this._enqueueCommand('takeElementScreenshot', TakeElementScreenshotCommand, commandArgs);
+        return this._enqueueCommandSync('takeElementScreenshot', TakeElementScreenshotCommand, commandArgs);
     }
 
     _resizeWindow$ (width, height) {
-        return this._enqueueCommand('resizeWindow', ResizeWindowCommand, { width, height });
+        return this._enqueueCommandSync('resizeWindow', ResizeWindowCommand, { width, height });
     }
 
     _resizeWindowToFitDevice$ (device, options) {
@@ -307,10 +346,7 @@ export default class TestController {
         });
     }
 
-    get debug () {
-        debugger;
-
-        return () => {};
+    _debug$ () {
     }
 }
 

@@ -67,12 +67,12 @@ const expandSelectorResults = (new ClientFunctionBuilder((selector, populateDeri
 
 })).getFunction();
 
-async function getSnapshot (getSelector, callsite, SelectorBuilder) {
+function getSnapshot (getSelector, callsite, SelectorBuilder) {
     let node       = null;
     const selector = new SelectorBuilder(getSelector(), { needError: true }, { instantiation: 'Selector' }).getFunction();
 
     try {
-        node = await selector();
+        node = selector()._execute();
     }
 
     catch (err) {
@@ -144,8 +144,8 @@ function addSnapshotProperties (obj, getSelector, SelectorBuilder, properties) {
                 if (!clientFunctionModeSwitcher.asyncMode)
                     return getSnapshotSync(getSelector, callsite, SelectorBuilder)[prop];
 
-                return ReExecutablePromise.fromFn(async () => {
-                    const snapshot = await getSnapshot(getSelector, callsite, SelectorBuilder);
+                return ReExecutablePromise.fromFn(() => {
+                    const snapshot = getSnapshot(getSelector, callsite, SelectorBuilder);
 
                     return snapshot[prop];
                 });
@@ -218,8 +218,8 @@ function addSnapshotPropertyShorthands ({ obj, getSelector, SelectorBuilder, cus
             return snapshot.style ? snapshot.style[prop] : void 0
         }
 
-        return ReExecutablePromise.fromFn(async () => {
-            const snapshot = await getSnapshot(getSelector, callsite, SelectorBuilder);
+        return ReExecutablePromise.fromFn(() => {
+            const snapshot = getSnapshot(getSelector, callsite, SelectorBuilder);
 
             return snapshot.style ? snapshot.style[prop] : void 0;
         });
@@ -234,8 +234,8 @@ function addSnapshotPropertyShorthands ({ obj, getSelector, SelectorBuilder, cus
             return snapshot.attributes ? snapshot.attributes[attrName] : void 0
         }
 
-        return ReExecutablePromise.fromFn(async () => {
-            const snapshot = await getSnapshot(getSelector, callsite, SelectorBuilder);
+        return ReExecutablePromise.fromFn(() => {
+            const snapshot = getSnapshot(getSelector, callsite, SelectorBuilder);
 
             return snapshot.attributes ? snapshot.attributes[attrName] : void 0;
         });
@@ -250,8 +250,8 @@ function addSnapshotPropertyShorthands ({ obj, getSelector, SelectorBuilder, cus
             return snapshot.attributes ? snapshot.attributes.hasOwnProperty(attrName) : false
         }
 
-        return ReExecutablePromise.fromFn(async () => {
-            const snapshot = await getSnapshot(getSelector, callsite, SelectorBuilder);
+        return ReExecutablePromise.fromFn(() => {
+            const snapshot = getSnapshot(getSelector, callsite, SelectorBuilder);
 
             return snapshot.attributes ? snapshot.attributes.hasOwnProperty(attrName) : false;
         });
@@ -266,8 +266,8 @@ function addSnapshotPropertyShorthands ({ obj, getSelector, SelectorBuilder, cus
             return snapshot.boundingClientRect ? snapshot.boundingClientRect[prop] : void 0;
         }
 
-        return ReExecutablePromise.fromFn(async () => {
-            const snapshot = await getSnapshot(getSelector, callsite, SelectorBuilder);
+        return ReExecutablePromise.fromFn(() => {
+            const snapshot = getSnapshot(getSelector, callsite, SelectorBuilder);
 
             return snapshot.boundingClientRect ? snapshot.boundingClientRect[prop] : void 0;
         });
@@ -282,8 +282,8 @@ function addSnapshotPropertyShorthands ({ obj, getSelector, SelectorBuilder, cus
             return snapshot.classNames ? snapshot.classNames.indexOf(name) > -1 : false;
         }
 
-        return ReExecutablePromise.fromFn(async () => {
-            const snapshot = await getSnapshot(getSelector, callsite, SelectorBuilder);
+        return ReExecutablePromise.fromFn(() => {
+            const snapshot = getSnapshot(getSelector, callsite, SelectorBuilder);
 
             return snapshot.classNames ? snapshot.classNames.indexOf(name) > -1 : false;
         });
@@ -295,9 +295,9 @@ function createCounter (getSelector, SelectorBuilder) {
     const counter  = builder.getFunction();
     const callsite = getCallsiteForMethod('get');
 
-    return async () => {
+    return () => {
         try {
-            return await counter();
+            return counter()._execute();
         }
 
         catch (err) {
@@ -343,7 +343,7 @@ function addCounterProperties ({ obj, getSelector, SelectorBuilder }) {
 
             const counter = createCounter(getSelector, SelectorBuilder);
 
-            return ReExecutablePromise.fromFn(async () => await counter() > 0);
+            return ReExecutablePromise.fromFn(() => counter() > 0);
         }
     });
 }

@@ -10,7 +10,7 @@ import Transmitter from './transmitter';
 import EE from '../../utils/async-event-emitter';
 import { UseRoleCommand } from '../../test-run/commands/actions';
 import { createRole } from '../../role';
-import { DebugCommand } from '../../test-run/commands/observation';
+import { DebugCommand, DisableDebugCommand } from '../../test-run/commands/observation';
 
 const INTERNAL_FILES_URL = url.pathToFileURL(path.join(__dirname, '../../'));
 
@@ -50,6 +50,16 @@ export default class CompilerProcess extends EE {
         this.cp = null;
         this.cri = null;
         this.transmitter = null;
+
+        testRunTracker.on('debug-resume', async () => {
+            await this.cri.Runtime.evaluate({ expression: `global.process.mainModule.require('../../api/test-controller').disableDebug()`});
+            await this.cri.Debugger.resume();
+        });
+
+        testRunTracker.on('debug-step', async () => {
+            await this.cri.Runtime.evaluate({ expression: `global.process.mainModule.require('../../api/test-controller').enableDebug()`});
+            await this.cri.Debugger.resume();
+        });
     }
 
     async _getDebugInfo (v8Flags) {
@@ -138,22 +148,20 @@ export default class CompilerProcess extends EE {
 
     _setupDebuggerHandlers () {
         this.cri.on('Debugger.paused', ({callFrames}) => {
+            if (callFrames[0].url.indexOf(INTERNAL_FILES_URL) >= 0)
+                return this.cri.Debugger.stepOut();
             Object.values(testRunTracker.activeTestRuns).forEach(testRun => {
                 if (!testRun.debugging)
                     testRun.executeCommand(new DebugCommand())
             });
-            if (callFrames[0].url.indexOf(INTERNAL_FILES_URL) >= 0)
-                 this.cri.Debugger.stepOut();
+            
         });
 
         this.cri.on('Debugger.resumed', () => {
             Object.values(testRunTracker.activeTestRuns).forEach(testRun => {
-                testRun.debugging = false;
+                if (testRun.debugging)
+                    testRun.executeCommand(new DisableDebugCommand())
             });
-        });
-
-        this.cri.on('Target.attachedToTarget', result => {
-            console.log('attached', result);
         });
     }
 

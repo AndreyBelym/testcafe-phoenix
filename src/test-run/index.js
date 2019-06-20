@@ -276,7 +276,7 @@ export default class TestRun extends AsyncEventEmitter {
     }
 
     async start () {
-        testRunTracker.activeTestRuns[this.session.id] = this;
+        testRunTracker.addActiveTestRun(this);
 
         await this.emit('start');
 
@@ -373,8 +373,7 @@ export default class TestRun extends AsyncEventEmitter {
 
         debugLogger.showBreakpoint(this.session.id, this.browserConnection.userAgent, callsite, error);
 
-        this.debugging = await this.executeCommand(new serviceCommands.SetBreakpointCommand(!!error), callsite);
-        console.log(this.debugging);
+        await this.executeCommand(new serviceCommands.SetBreakpointCommand(!!error), callsite);
     }
 
     _removeAllNonServiceTasks () {
@@ -438,6 +437,22 @@ export default class TestRun extends AsyncEventEmitter {
         return false;
     }
 
+    _handleDebugState (driverStatus) {
+        switch (driverStatus.debug) {
+            case 'step': {
+                this.emit('debug-step');
+
+                return;
+            }
+
+            case 'resume': {
+                this.emit('debug-resume');
+
+                return;
+            }
+        }
+    }
+
     _handleDriverRequest (driverStatus) {
         const isTestDone                 = this.currentDriverTask && this.currentDriverTask.command.type === COMMAND_TYPE.testDone;
         const pageError                  = this.pendingPageError || driverStatus.pageError;
@@ -447,6 +462,8 @@ export default class TestRun extends AsyncEventEmitter {
             return new Promise((_, reject) => reject());
 
         this.consoleMessages.concat(driverStatus.consoleMessages);
+
+        this._handleDebugState(driverStatus);
 
         if (!currentTaskRejectedByError && driverStatus.isCommandResult) {
             if (isTestDone) {
@@ -526,6 +543,11 @@ export default class TestRun extends AsyncEventEmitter {
 
         else if (command.type === COMMAND_TYPE.debug)
             this.debugging = true;
+        else if (command.type === COMMAND_TYPE.disableDebug) {
+            debugLogger.hideBreakpoint(this.session.id);
+
+            this.debugging = false;
+        }
     }
 
     async _adjustScreenshotCommand (command) {
@@ -537,8 +559,9 @@ export default class TestRun extends AsyncEventEmitter {
     }
 
     async _setBreakpointIfNecessary (command, callsite) {
-        if (!this.disableDebugBreakpoints && this.debugging && canSetDebuggerBreakpointBeforeCommand(command))
+        if (!this.disableDebugBreakpoints && this.debugging && canSetDebuggerBreakpointBeforeCommand(command)) {
             await this._enqueueSetBreakpointCommand(callsite);
+        }
     }
 
     async executeCommand (command, callsite) {
@@ -724,7 +747,7 @@ ServiceMessages[CLIENT_MESSAGES.ready] = function (msg) {
 
     // NOTE: we send an empty response after the MAX_RESPONSE_DELAY timeout is exceeded to keep connection
     // with the client and prevent the response timeout exception on the client side
-    const responseTimeout = setTimeout(() => this._resolvePendingRequest(null), MAX_RESPONSE_DELAY);
+    const responseTimeout = setTimeout(() => this._resolvePendingRequest(null), this.debugging ? 1000 : MAX_RESPONSE_DELAY);
 
     return new Promise((resolve, reject) => {
         this.pendingRequest = { resolve, reject, responseTimeout };
