@@ -43,6 +43,8 @@ export default class Fixture extends TestingUnit {
 
         this.beforeFn = fn;
 
+        this.beforeFn.toJSON = () => true;
+
         return this.apiOrigin;
     }
 
@@ -50,6 +52,8 @@ export default class Fixture extends TestingUnit {
         assertType(is.function, 'after', 'fixture.after hook', fn);
 
         this.afterFn = fn;
+
+        this.afterFn.toJSON = () => true;
 
         return this.apiOrigin;
     }
@@ -59,6 +63,8 @@ export default class Fixture extends TestingUnit {
 
         this.beforeEachFn = wrapTestFunction(fn);
 
+        this.beforeEachFn.toJSON = () => true;
+
         return this.apiOrigin;
     }
 
@@ -66,6 +72,8 @@ export default class Fixture extends TestingUnit {
         assertType(is.function, 'afterEach', 'fixture.afterEach hook', fn);
 
         this.afterEachFn = wrapTestFunction(fn);
+
+        this.afterEachFn.toJSON = () => true;
 
         return this.apiOrigin;
     }

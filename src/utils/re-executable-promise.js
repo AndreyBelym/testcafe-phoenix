@@ -3,35 +3,59 @@ import Promise from 'pinkie';
 import { noop } from 'lodash';
 import testRunTracker from '../api/test-run-tracker';
 
-export default class ReExecutablePromise extends Promise {
+export default class ReExecutablePromise {
     constructor (executorFn) {
-        super(noop);
-
-        this._fn          = executorFn;
-        this._taskPromise = null;
+        this._fn     = executorFn;
+        this._executed = false;
+        this._result = null;
+        this._error = null;
     }
 
     _ensureExecuting () {
-        if (!this._taskPromise)
-            this._taskPromise = new Promise(this._fn);
+        if (this._executed)
+            return;
+
+        this._result = null;
+        this._error = null;
+
+        try {
+            this._result = this._fn()
+        }
+        catch (error) {
+            this._error = error;
+        }
     }
 
     _reExecute () {
-        this._taskPromise = null;
+        this._executed = false;
 
-        return this;
+        return this._execute();
+    }
+
+    _execute () {
+        this._ensureExecuting();
+
+        if (this._error) 
+            throw this._error;
+
+        return this._result;
     }
 
     then (onFulfilled, onRejected) {
         this._ensureExecuting();
 
-        return this._taskPromise.then(onFulfilled, onRejected);
+        try {
+            if (this._error) 
+                return Promise.resolve(onRejected(this._error));
+            
+            return Promise.resolve(onFulfilled(this._result));
+        } catch (e) {
+            return Promise.reject(e);
+        }
     }
 
     catch (onRejected) {
-        this._ensureExecuting();
-
-        return this._taskPromise.catch(onRejected);
+        return this.then(() => {}, onRejected);
     }
 
     static fromFn (asyncExecutorFn) {
@@ -40,6 +64,6 @@ export default class ReExecutablePromise extends Promise {
         if (testRunId)
             asyncExecutorFn = testRunTracker.addTrackingMarkerToFunction(testRunId, asyncExecutorFn);
 
-        return new ReExecutablePromise(resolve => resolve(asyncExecutorFn()));
+        return new ReExecutablePromise(asyncExecutorFn);
     }
 }

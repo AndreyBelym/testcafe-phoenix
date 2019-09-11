@@ -22,7 +22,7 @@ export default class Assertion {
             message = void 0;
         }
 
-        return this.testController._enqueueCommand(apiMethodName, AssertionCommand, {
+        return this.testController._enqueueCommandSync(apiMethodName, AssertionCommand, {
             assertionType: apiMethodName,
             actual:        this.actual,
             expected:      assertionArgs.expected,

@@ -65,8 +65,8 @@ class ControllerMock extends LiveModeController {
 }
 
 class BootstrapperMock extends LiveModeBootstrapper {
-    constructor (runner, browserConnectionGateway) {
-        super(runner, browserConnectionGateway);
+    constructor (services) {
+        super(services);
     }
 
     createRunnableConfiguration () {
@@ -81,8 +81,8 @@ class BootstrapperMock extends LiveModeBootstrapper {
 }
 
 class RunnerMock extends LiveModeRunner {
-    constructor ({ proxy, browserConnectionGateway, configuration }, { runTimeout = 0, errorOnValidate = false, onBootstrapDone = noop }) {
-        super(proxy, browserConnectionGateway, configuration.clone());
+    constructor (configuration, services, { runTimeout = 0, errorOnValidate = false, onBootstrapDone = noop }) {
+        super(configuration.clone(), services);
 
         this.runCount        = 0;
         this.runTimeout      = runTimeout;
@@ -110,8 +110,8 @@ class RunnerMock extends LiveModeRunner {
         return super._dispose();
     }
 
-    _createBootstrapper (browserConnectionGateway) {
-        return new BootstrapperMock(this, browserConnectionGateway);
+    _createBootstrapper (services) {
+        return new BootstrapperMock({ runner: this, ...services });
     }
 
     _createCancelablePromise (promise) {
@@ -172,7 +172,7 @@ describe('TestCafe Live', function () {
     let runner   = null;
 
     function runTests (fileName, options = {}) {
-        runner = new RunnerMock(testCafe, options);
+        runner = new RunnerMock(testCafe.configuration, testCafe.services, options);
 
         return runner
             .src(fileName)
@@ -343,8 +343,9 @@ describe('TestCafe Live', function () {
     });
 
     it('same runner runs twice', function () {
-        runner = new RunnerMock(testCafe, {})
-            .browsers('chrome');
+        runner = new RunnerMock(testCafe.configuration, testCafe.services, {});
+
+        runner.browsers('chrome');
 
         const promise = runner.run();
 

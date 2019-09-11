@@ -46,6 +46,14 @@ export function delegateAPI (dest, apiList, opts) {
             Object.defineProperty(dest, apiProp, { set: fn, configurable: true });
 
         else
-            dest[apiProp] = fn;
+            Object.defineProperty(dest, apiProp, { 
+                get () {
+                    if (dest.shouldStop && dest.shouldStop(apiProp))
+                        debugger;
+                    
+                    return fn;
+                }, 
+                configurable: true 
+            });
     });
 }

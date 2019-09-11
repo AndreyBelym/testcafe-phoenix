@@ -334,7 +334,7 @@ gulp.task('build', DEV_MODE ? gulp.registry().get('fast-build') : gulp.parallel(
 // Test
 gulp.step('test-server-run', () => {
     return gulp
-        .src('test/server/*-test.js', { read: false })
+        .src('test/server/fixtures/**/*-test.js', { read: false })
         .pipe(mocha({
             timeout: typeof v8debug !== 'undefined' || !!process.debugPort ? Infinity : 2000 // NOTE: disable timeouts in debug
         }));

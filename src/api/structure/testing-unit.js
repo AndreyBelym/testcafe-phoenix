@@ -7,6 +7,8 @@ import OPTION_NAMES from '../../configuration/option-names';
 
 export default class TestingUnit {
     constructor (testFile, unitTypeName) {
+        this.id = require('nanoid')();
+
         this.testFile     = testFile;
         this.unitTypeName = unitTypeName;
 

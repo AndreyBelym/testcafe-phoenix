@@ -4,12 +4,19 @@ fixture `A set of examples that illustrate how to use TestCafe API`
     .page `https://devexpress.github.io/testcafe/example/`;
 
 // Tests
-test('Text typing basics', async t => {
+test.only('Text typing basics', async t => {
+    debugger;
+
     await t
         .typeText(page.nameInput, 'Peter') // Type name
         .typeText(page.nameInput, 'Paker', { replace: true }) // Replace with last name
+
+
+    t.debug();
+
+    await t
         .typeText(page.nameInput, 'r', { caretPos: 2 }) // Correct last name
-        .expect(page.nameInput.value).eql('Parker'); // Check result
+        .expect(page.nameInput.value).eql('Paker'); // Check result
 });
 
 

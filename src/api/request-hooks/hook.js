@@ -1,9 +1,11 @@
 import { RequestFilterRule } from 'testcafe-hammerhead';
 import { castArray } from 'lodash';
+import nanoid from 'nanoid';
 import { RequestHookNotImplementedMethodError } from '../../errors/test-run';
 
 export default class RequestHook {
     constructor (requestFilterRules, responseEventConfigureOpts) {
+        this.id = nanoid();
         this.requestFilterRules              = this._prepareRequestFilterRules(requestFilterRules);
         this._instantiatedRequestFilterRules = [];
         this.responseEventConfigureOpts      = responseEventConfigureOpts;

@@ -1,19 +1,16 @@
 import { EventEmitter } from 'events';
-import nanoid from 'nanoid';
 import PHASE from './phase';
-import { assertType, is } from '../errors/runtime/type-assertions';
-import wrapTestFunction from '../api/wrap-test-function';
 import { resolvePageUrl } from '../api/test-page-url';
 import roleMarker from './marker-symbol';
 import { StateSnapshot } from 'testcafe-hammerhead';
 
 class Role extends EventEmitter {
-    constructor (loginPage, initFn, options = {}) {
+    constructor (id, loginPage, initFn, options = {}) {
         super();
 
         this[roleMarker] = true;
 
-        this.id    = nanoid(7);
+        this.id    = id;
         this.phase = loginPage ? PHASE.uninitialized : PHASE.initialized;
 
         this.loginPage = loginPage;
@@ -61,20 +58,8 @@ class Role extends EventEmitter {
     }
 }
 
-export function createRole (loginPage, initFn, options = {}) {
-    assertType(is.string, 'Role', '"loginPage" argument', loginPage);
-    assertType(is.function, 'Role', '"initFn" argument', initFn);
-    assertType(is.nonNullObject, 'Role', '"options" argument', options);
-
-    if (options.preserveUrl !== void 0)
-        assertType(is.boolean, 'Role', '"preserveUrl" option', options.preserveUrl);
-
+export function createRole (id, loginPage, initFn, options = {}) {
     loginPage = resolvePageUrl(loginPage);
-    initFn    = wrapTestFunction(initFn);
 
-    return new Role(loginPage, initFn, options);
-}
-
-export function createAnonymousRole () {
-    return new Role(null, null);
+    return new Role(id, loginPage, initFn, options);
 }

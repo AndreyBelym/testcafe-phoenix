@@ -40,11 +40,11 @@ export default class AssertionExecutor extends EventEmitter {
     }
 
     _wrapFunction (fn) {
-        return async () => {
+        return () => {
             const resultPromise = this.command.actual;
 
             while (!this.passed) {
-                this.command.actual = await resultPromise._reExecute();
+                this.command.actual = resultPromise._reExecute();
 
                 try {
                     fn();
@@ -58,7 +58,7 @@ export default class AssertionExecutor extends EventEmitter {
                         throw err;
                     }
 
-                    await delay(ASSERTION_DELAY);
+                    this.emit('delay', ASSERTION_DELAY);
 
                     this.inRetry = true;
                     this.emit('start-assertion-retries', this._getTimeLeft());
@@ -67,11 +67,11 @@ export default class AssertionExecutor extends EventEmitter {
         };
     }
 
-    async run () {
+    run () {
         this.startTime = new Date();
 
         try {
-            await this.fn();
+            this.fn();
         }
 
         catch (err) {

@@ -8,6 +8,7 @@ import getViewPortWidth from '../utils/get-viewport-width';
 import { wordWrap, splitQuotedText } from '../utils/string';
 import { getSSLOptions, getVideoOptions, getMetaOptions, getGrepOptions } from '../utils/get-options';
 import getFilterFn from '../utils/get-filter-fn';
+import { extractNodeProcessArguments } from './node-arguments-filter';
 import RUN_OPTION_NAMES from '../configuration/run-option-names';
 import { Dictionary, ReporterOption, RunnerRunOptions } from '../configuration/interfaces';
 
@@ -265,11 +266,13 @@ export default class CLIArgumentParser {
     }
 
     public async parse (argv: string[]): Promise<void> {
-        this.program.parse(argv);
+        const { args, v8Flags } = extractNodeProcessArguments(argv);
+
+        this.program.parse(args);
 
         this.args = this.program.args;
 
-        this.opts = this.program.opts();
+        this.opts = { v8Flags, ...this.program.opts() };
 
         // NOTE: the '-list-browsers' option only lists browsers and immediately exits the app.
         // Therefore, we don't need to process other arguments.

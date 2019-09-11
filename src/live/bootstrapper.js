@@ -6,28 +6,28 @@ import Compiler from '../compiler';
 const originalRequire = Module.prototype.require;
 
 class LiveModeBootstrapper extends Bootstrapper {
-    constructor (runner, browserConnectionGateway) {
-        super(browserConnectionGateway);
+    constructor ({ runner, ...services }) {
+        super(services);
 
         this.runner = runner;
     }
 
-    _getTests () {
+    async _getTests () {
         this._mockRequire();
 
-        return super._getTests()
-            .then(result => {
-                this._restoreRequire();
+        try {
+            return await super._getTests();
+        }
+        catch (err) {
+            await this.compilerHost.cleanUp();
 
-                return result;
-            })
-            .catch(err => {
-                this._restoreRequire();
+            this.runner.setBootstrappingError(err);
 
-                Compiler.cleanUp();
-
-                this.runner.setBootstrappingError(err);
-            });
+            return void 0;
+        }
+        finally {
+            this._restoreRequire();
+        }
     }
 
     _mockRequire () {

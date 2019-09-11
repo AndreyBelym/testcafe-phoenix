@@ -490,10 +490,12 @@ export default class Driver {
 
     _onSetBreakpointCommand (isTestError) {
         this.statusBar.showDebuggingStatus(isTestError)
-            .then(stopAfterNextAction => this._onReady(new DriverStatus({
-                isCommandResult: true,
-                result:          stopAfterNextAction
-            })));
+            .then(debug => this.debug = debug);
+
+        this._onReady(new DriverStatus({
+            isCommandResult: true,
+            result: true
+        }));
     }
 
     _onSetTestSpeedCommand (command) {
@@ -566,6 +568,11 @@ export default class Driver {
 
     // Routing
     _onReady (status) {
+        if (this.debug) {
+            status.debug = this.debug;
+            this.debug = null;
+        }
+
         this._sendStatus(status)
             .then(command => {
                 if (command)
@@ -578,14 +585,21 @@ export default class Driver {
     }
 
     _executeCommand (command) {
+        if (command.type === COMMAND_TYPE.setBreakpoint)
+            return this._onSetBreakpointCommand(command.isTestError);
+
+        if (command.type === COMMAND_TYPE.disableDebug) {
+            this.statusBar._resetState();
+            return this._onReady(new DriverStatus({
+                isCommandResult: true
+            }));
+        }
+
         if (this.customCommandHandlers[command.type])
             this._onCustomCommand(command);
 
         else if (command.type === COMMAND_TYPE.testDone)
             this._onTestDone(new DriverStatus({ isCommandResult: true }));
-
-        else if (command.type === COMMAND_TYPE.setBreakpoint)
-            this._onSetBreakpointCommand(command.isTestError);
 
         else if (command.type === COMMAND_TYPE.switchToMainWindow)
             this._onSwitchToMainWindowCommand(command);

@@ -8,8 +8,8 @@ import { GeneralError } from '../errors/runtime';
 import { RUNTIME_ERRORS } from '../errors/types';
 
 class LiveModeRunner extends Runner {
-    constructor (proxy, browserConnectionGateway, options) {
-        super(proxy, browserConnectionGateway, options);
+    constructor (configuration, services) {
+        super(configuration, services);
 
         this.stopping              = false;
         this.runnerTaskPromise     = null;
@@ -173,8 +173,8 @@ class LiveModeRunner extends Runner {
         return super._createTask(tests, browserConnectionGroups, proxy, opts);
     }
 
-    _createBootstrapper (browserConnectionGateway) {
-        return new LiveModeBootstrapper(this, browserConnectionGateway);
+    _createBootstrapper (services) {
+        return new LiveModeBootstrapper({ runner: this, ...services });
     }
 
     _createController () {

@@ -1,5 +1,4 @@
 import { isUndefined, filter, flatten, chunk, times } from 'lodash';
-import Compiler from '../compiler';
 import BrowserConnection from '../browser/connection';
 import { GeneralError } from '../errors/runtime';
 import browserProviderPool from '../browser/provider/pool';
@@ -7,6 +6,7 @@ import { RUNTIME_ERRORS } from '../errors/types';
 import BrowserSet from './browser-set';
 import TestedApp from './tested-app';
 import parseFileList from '../utils/parse-file-list';
+import DevToolsWatcher from './devtools-watcher';
 import path from 'path';
 import fs from 'fs';
 import makeDir from 'make-dir';
@@ -14,8 +14,9 @@ import resolvePathRelativelyCwd from '../utils/resolve-path-relatively-cwd';
 import loadClientScripts from '../custom-client-scripts/load';
 
 export default class Bootstrapper {
-    constructor (browserConnectionGateway) {
+    constructor ({ browserConnectionGateway, compilerHost }) {
         this.browserConnectionGateway = browserConnectionGateway;
+        this.compilerHost             = compilerHost;
         this.concurrency              = null;
         this.sources                  = [];
         this.browsers                 = [];
@@ -55,7 +56,14 @@ export default class Bootstrapper {
             return [];
 
         return browserInfo
-            .map(browser => times(this.concurrency, () => new BrowserConnection(this.browserConnectionGateway, browser)));
+            .map(browser => times(this.concurrency, () => {
+                const bc = new BrowserConnection(this.browserConnectionGateway, browser);
+
+                if (browser.providerName.startsWith('chrom'))
+                    new DevToolsWatcher(bc, this.compilerHost.debugInfo);
+
+                return bc;
+            }));
     }
 
     async _getBrowserConnections (browserInfo) {
@@ -77,8 +85,7 @@ export default class Bootstrapper {
 
         const { parsedFileList, compilerOptions } = await this._getCompilerArguments();
 
-        const compiler = new Compiler(parsedFileList, compilerOptions);
-        let tests      = await compiler.getTests();
+        let tests = await this.compilerHost.getTests(parsedFileList, compilerOptions);
 
         const testsWithOnlyFlag = tests.filter(test => test.only);
 

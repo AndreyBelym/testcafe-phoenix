@@ -27,8 +27,7 @@ import {
     GetNativeDialogHistoryCommand,
     GetBrowserConsoleMessagesCommand,
     SetTestSpeedCommand,
-    SetPageLoadTimeoutCommand,
-    UseRoleCommand
+    SetPageLoadTimeoutCommand
 } from '../../test-run/commands/actions';
 
 import {
@@ -43,7 +42,11 @@ import { WaitCommand, DebugCommand } from '../../test-run/commands/observation';
 import assertRequestHookType from '../request-hooks/assert-type';
 import { createExecutionContext as createContext } from './execution-context';
 
+import clientFunctionModeSwitcher from '../../client-functions/client-function-mode-switcher';
+
 const originalThen = Promise.resolve().then;
+
+let inDebug = false;
 
 export default class TestController {
     constructor (testRun) {
@@ -52,6 +55,26 @@ export default class TestController {
         this.testRun               = testRun;
         this.executionChain        = Promise.resolve();
         this.callsitesWithoutAwait = new Set();
+    }
+
+    static enableDebug () {
+        inDebug = true;
+    }
+
+    static disableDebug () {
+        inDebug = false;
+    }
+
+    shouldStop (command) {
+        if (inDebug && command !== 'debug') {
+            inDebug = false;
+            return true;
+        }
+
+        if (command === 'debug')
+            return true;
+
+        return false;
     }
 
     // NOTE: we track missing `awaits` by exposing a special custom Promise to user code.
@@ -114,6 +137,23 @@ export default class TestController {
         });
     }
 
+    _enqueueCommandSync (apiMethodName, CmdCtor, cmdArgs) {
+        const callsite = getCallsiteForMethod(apiMethodName);
+        let command = null;
+
+        try {
+            command = new CmdCtor(cmdArgs, this.testRun);
+        }
+        catch (err) {
+            err.callsite = callsite;
+            throw err;
+        }
+
+        this.testRun.executeCommandSync(command, callsite);
+
+        return this;
+    }
+
     getExecutionContext () {
         if (!this._executionContext)
             this._executionContext = createContext(this.testRun);
@@ -126,13 +166,13 @@ export default class TestController {
     // methods in chained wrappers then we will have callsite for the wrapped method
     // in this file instead of chained method callsite in user code.
     _ctx$getter () {
-        return this.testRun.ctx;
+        return this.testRun.testCtx;
     }
 
     _ctx$setter (val) {
-        this.testRun.ctx = val;
+        this.testRun.testCtx = val;
 
-        return this.testRun.ctx;
+        return this.testRun.testCtx;
     }
 
     _fixtureCtx$getter () {
@@ -140,39 +180,39 @@ export default class TestController {
     }
 
     _click$ (selector, options) {
-        return this._enqueueCommand('click', ClickCommand, { selector, options });
+        return this._enqueueCommandSync('click', ClickCommand, { selector, options });
     }
 
     _rightClick$ (selector, options) {
-        return this._enqueueCommand('rightClick', RightClickCommand, { selector, options });
+        return this._enqueueCommandSync('rightClick', RightClickCommand, { selector, options });
     }
 
     _doubleClick$ (selector, options) {
-        return this._enqueueCommand('doubleClick', DoubleClickCommand, { selector, options });
+        return this._enqueueCommandSync('doubleClick', DoubleClickCommand, { selector, options });
     }
 
     _hover$ (selector, options) {
-        return this._enqueueCommand('hover', HoverCommand, { selector, options });
+        return this._enqueueCommandSync('hover', HoverCommand, { selector, options });
     }
 
     _drag$ (selector, dragOffsetX, dragOffsetY, options) {
-        return this._enqueueCommand('drag', DragCommand, { selector, dragOffsetX, dragOffsetY, options });
+        return this._enqueueCommandSync('drag', DragCommand, { selector, dragOffsetX, dragOffsetY, options });
     }
 
     _dragToElement$ (selector, destinationSelector, options) {
-        return this._enqueueCommand('dragToElement', DragToElementCommand, { selector, destinationSelector, options });
+        return this._enqueueCommandSync('dragToElement', DragToElementCommand, { selector, destinationSelector, options });
     }
 
     _typeText$ (selector, text, options) {
-        return this._enqueueCommand('typeText', TypeTextCommand, { selector, text, options });
+        return this._enqueueCommandSync('typeText', TypeTextCommand, { selector, text, options });
     }
 
     _selectText$ (selector, startPos, endPos, options) {
-        return this._enqueueCommand('selectText', SelectTextCommand, { selector, startPos, endPos, options });
+        return this._enqueueCommandSync('selectText', SelectTextCommand, { selector, startPos, endPos, options });
     }
 
     _selectTextAreaContent$ (selector, startLine, startPos, endLine, endPos, options) {
-        return this._enqueueCommand('selectTextAreaContent', SelectTextAreaContentCommand, {
+        return this._enqueueCommandSync('selectTextAreaContent', SelectTextAreaContentCommand, {
             selector,
             startLine,
             startPos,
@@ -183,7 +223,7 @@ export default class TestController {
     }
 
     _selectEditableContent$ (startSelector, endSelector, options) {
-        return this._enqueueCommand('selectEditableContent', SelectEditableContentCommand, {
+        return this._enqueueCommandSync('selectEditableContent', SelectEditableContentCommand, {
             startSelector,
             endSelector,
             options
@@ -191,27 +231,27 @@ export default class TestController {
     }
 
     _pressKey$ (keys, options) {
-        return this._enqueueCommand('pressKey', PressKeyCommand, { keys, options });
+        return this._enqueueCommandSync('pressKey', PressKeyCommand, { keys, options });
     }
 
     _wait$ (timeout) {
-        return this._enqueueCommand('wait', WaitCommand, { timeout });
+        return this._enqueueCommandSync('wait', WaitCommand, { timeout });
     }
 
     _navigateTo$ (url) {
-        return this._enqueueCommand('navigateTo', NavigateToCommand, { url });
+        return this._enqueueCommandSync('navigateTo', NavigateToCommand, { url });
     }
 
     _setFilesToUpload$ (selector, filePath) {
-        return this._enqueueCommand('setFilesToUpload', SetFilesToUploadCommand, { selector, filePath });
+        return this._enqueueCommandSync('setFilesToUpload', SetFilesToUploadCommand, { selector, filePath });
     }
 
     _clearUpload$ (selector) {
-        return this._enqueueCommand('clearUpload', ClearUploadCommand, { selector });
+        return this._enqueueCommandSync('clearUpload', ClearUploadCommand, { selector });
     }
 
     _takeScreenshot$ (path) {
-        return this._enqueueCommand('takeScreenshot', TakeScreenshotCommand, { path });
+        return this._enqueueCommandSync('takeScreenshot', TakeScreenshotCommand, { path });
     }
 
     _takeElementScreenshot$ (selector, ...args) {
@@ -226,27 +266,27 @@ export default class TestController {
         else
             commandArgs.path = args[0];
 
-        return this._enqueueCommand('takeElementScreenshot', TakeElementScreenshotCommand, commandArgs);
+        return this._enqueueCommandSync('takeElementScreenshot', TakeElementScreenshotCommand, commandArgs);
     }
 
     _resizeWindow$ (width, height) {
-        return this._enqueueCommand('resizeWindow', ResizeWindowCommand, { width, height });
+        return this._enqueueCommandSync('resizeWindow', ResizeWindowCommand, { width, height });
     }
 
     _resizeWindowToFitDevice$ (device, options) {
-        return this._enqueueCommand('resizeWindowToFitDevice', ResizeWindowToFitDeviceCommand, { device, options });
+        return this._enqueueCommandSync('resizeWindowToFitDevice', ResizeWindowToFitDeviceCommand, { device, options });
     }
 
     _maximizeWindow$ () {
-        return this._enqueueCommand('maximizeWindow', MaximizeWindowCommand);
+        return this._enqueueCommandSync('maximizeWindow', MaximizeWindowCommand);
     }
 
     _switchToIframe$ (selector) {
-        return this._enqueueCommand('switchToIframe', SwitchToIframeCommand, { selector });
+        return this._enqueueCommandSync('switchToIframe', SwitchToIframeCommand, { selector });
     }
 
     _switchToMainWindow$ () {
-        return this._enqueueCommand('switchToMainWindow', SwitchToMainWindowCommand);
+        return this._enqueueCommandSync('switchToMainWindow', SwitchToMainWindowCommand);
     }
 
     _eval$ (fn, options) {
@@ -260,7 +300,7 @@ export default class TestController {
     }
 
     _setNativeDialogHandler$ (fn, options) {
-        return this._enqueueCommand('setNativeDialogHandler', SetNativeDialogHandlerCommand, {
+        return this._enqueueCommandSync('setNativeDialogHandler', SetNativeDialogHandlerCommand, {
             dialogHandler: { fn, options }
         });
     }
@@ -268,13 +308,13 @@ export default class TestController {
     _getNativeDialogHistory$ () {
         const callsite = getCallsiteForMethod('getNativeDialogHistory');
 
-        return this.testRun.executeCommand(new GetNativeDialogHistoryCommand(), callsite);
+        return this.testRun.executeCommandSync(new GetNativeDialogHistoryCommand(), callsite);
     }
 
     _getBrowserConsoleMessages$ () {
         const callsite = getCallsiteForMethod('getBrowserConsoleMessages');
 
-        return this.testRun.executeCommand(new GetBrowserConsoleMessagesCommand(), callsite);
+        return this.testRun.executeCommandSync(new GetBrowserConsoleMessagesCommand(), callsite);
     }
 
     _expect$ (actual) {
@@ -283,40 +323,41 @@ export default class TestController {
         return new Assertion(actual, this, callsite);
     }
 
-    _debug$ () {
-        return this._enqueueCommand('debug', DebugCommand);
-    }
-
     _setTestSpeed$ (speed) {
-        return this._enqueueCommand('setTestSpeed', SetTestSpeedCommand, { speed });
+        return this._enqueueCommandSync('setTestSpeed', SetTestSpeedCommand, { speed });
     }
 
     _setPageLoadTimeout$ (duration) {
-        return this._enqueueCommand('setPageLoadTimeout', SetPageLoadTimeoutCommand, { duration });
+        return this._enqueueCommandSync('setPageLoadTimeout', SetPageLoadTimeoutCommand, { duration });
     }
 
     _useRole$ (role) {
-        return this._enqueueCommand('useRole', UseRoleCommand, { role });
+        this.testRun.useRole(role);
+
+        return this;
     }
 
     _addRequestHooks$ (...hooks) {
-        return this._enqueueTask('addRequestHooks', () => {
-            hooks = flatten(hooks);
+        hooks = flatten(hooks);
 
-            assertRequestHookType(hooks);
+        assertRequestHookType(hooks);
 
-            hooks.forEach(hook => this.testRun.addRequestHook(hook));
-        });
+        this.testRun.addRequestHooks(hooks);
+
+        return this;
     }
 
     _removeRequestHooks$ (...hooks) {
-        return this._enqueueTask('removeRequestHooks', () => {
-            hooks = flatten(hooks);
+        hooks = flatten(hooks);
 
-            assertRequestHookType(hooks);
+        assertRequestHookType(hooks);
 
-            hooks.forEach(hook => this.testRun.removeRequestHook(hook));
-        });
+        this.testRun.removeRequestHooks(hooks);
+
+        return this;
+    }
+
+    _debug$ () {
     }
 }
 
