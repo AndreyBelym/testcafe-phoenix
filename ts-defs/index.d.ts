@@ -698,22 +698,10 @@ interface SelectorPromise extends SelectorAPI, Promise<NodeSnapshot> {
 
 // Role
 //----------------------------------------------------------------------------
-interface RoleInstance {
-    /**
-     * Creates a user role.
-     *
-     * @param url - The URL of the login page.
-     * @param fn - An asynchronous function that contains logic that authenticates the user.
-     * @param fn `t` - The test controller used to access test run API.
-     * @param options - Role options.
-     */
-    (url: String, fn: (t: TestController) => Promise<any>, options?: RoleOptions): this;
-
-    /**
-     * Creates an anonymous user role.
-     */
-    anonymous(): this;
+declare class Role {
+    private constructor();
 }
+
 
 interface RoleOptions {
     /**
@@ -1284,7 +1272,7 @@ interface TestController {
      *
      * @param role - The role you need to use further in the test.
      */
-    useRole(role: RoleInstance): TestControllerPromise;
+    useRole(role: Role): TestControllerPromise;
     /**
      * Attaches the hooks during a test run
      *
@@ -1587,7 +1575,7 @@ interface TestCafe {
     /**
      * Stops the TestCafe server. Forcibly closes all connections and pending test runs immediately.
      */
-    close(): Promise<void>;
+    close(): void;
 }
 
 interface Runner {
@@ -1761,10 +1749,6 @@ interface RunOptions {
      * Defines whether to disable checks for test and fixture directives in test files. Use this option to run dynamically loaded tests.
      */
     disableTestSyntaxValidation: boolean;
-    /**
-     * Defines whether to disable page caching during test execution.
-     */
-    disablePageCaching: boolean;
 }
 
 // Exportable lib
@@ -1777,29 +1761,54 @@ declare module 'testcafe' {
         >;
     }
 
-    /**
-     * Creates a selector.
-     *
-     * @param init - Selector initializer.
-     * @param options - Selector options.
-     */
-    export function Selector(
-        init:
-            | string
-            | ((...args: any[]) => Node | Node[] | NodeList | HTMLCollection)
-            | Selector
-            | NodeSnapshot
-            | SelectorPromise,
-        options?: SelectorOptions
-    ): Selector;
 
-    /**
-     * Creates a client function.
-     *
-     * @param fn - Function code.
-     * @param options - Function options.
-     */
-    export function ClientFunction<R, A extends any[]>(fn: (...args: A) => R, options?: ClientFunctionOptions): ClientFunction<R, A>;
+    export interface SelectorFactory {
+        /**
+         * Creates a selector.
+         *
+         * @param init - Selector initializer.
+         * @param options - Selector options.
+         */
+        (
+            init:
+                | string
+                | ((...args: any[]) => Node | Node[] | NodeList | HTMLCollection)
+                | Selector
+                | NodeSnapshot
+                | SelectorPromise,
+            options?: SelectorOptions
+        ): Selector;
+    }
+
+    export interface ClientFunctionFactory {
+        /**
+         * Creates a client function.
+         *
+         * @param fn - Function code.
+         * @param options - Function options.
+         */
+        <R, A extends any[]>(fn: (...args: A) => R, options?: ClientFunctionOptions): ClientFunction<R, A>
+    }
+
+    export interface RoleFactory {
+        /**
+         * Creates a user role.
+         *
+         * @param url - The URL of the login page.
+         * @param fn - An asynchronous function that contains logic that authenticates the user.
+         * @param fn `t` - The test controller used to access test run API.
+         * @param options - Role options.
+         */
+        (url: String, fn: (t: TestController) => Promise<any>, options?: RoleOptions): Role;
+        /**
+         * Creates an anonymous user role.
+         */
+        anonymous(): Role;
+    }
+
+    export const Selector: SelectorFactory;
+    export const ClientFunction: ClientFunctionFactory;
+    export const Role: RoleFactory;
 
     /**
      * Creates a request mock
@@ -1834,11 +1843,6 @@ declare module 'testcafe' {
          */
         onResponse(responseEvent: object): Promise<void>;
     }
-
-    /**
-     * Creates a Role
-     */
-    export const Role: RoleInstance;
 
     /**
      * The test controller used to access test run API.
@@ -1949,12 +1953,6 @@ interface FixtureFn {
      * @param hooks - The set of the RequestHook subclasses
      */
     requestHooks(...hooks: object[]): this;
-    /**
-     * Injects scripts into pages visited during the fixture execution.
-     *
-     * @param scripts - Scripts that should be added to the tested pages.
-    */
-   clientScripts (scripts: ClientScript | ClientScript[]): this;
 }
 
 interface TestFn {
@@ -2020,12 +2018,6 @@ interface TestFn {
      * @param hooks - The set of the RequestHook subclasses
      */
     requestHooks(...hooks: object[]): this;
-    /**
-     * Injects scripts into pages visited during the test execution.
-     *
-     * @param scripts - Scripts that should be added to the tested pages.
-    */
-   clientScripts (scripts: ClientScript | ClientScript[]): this;
 }
 
 declare var fixture: FixtureFn;
