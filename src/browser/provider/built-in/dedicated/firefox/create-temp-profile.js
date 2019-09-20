@@ -1,13 +1,17 @@
 import path from 'path';
 import TempDirectory from '../../../../../utils/temp-directory';
 import { writeFile } from '../../../../../utils/promisified-functions';
+import mimeDatabase from 'mime-db';
 
+
+const MIME_TYPES = Object.keys(mimeDatabase).join(',');
 
 async function generatePreferences (profileDir, { marionettePort, config }) {
     const prefsFileName = path.join(profileDir, 'user.js');
 
     let prefs = [
         'user_pref("browser.link.open_newwindow.override.external", 2);',
+        `user_pref("browser.browser.helperApps.neverAsk.saveToDisk", ${MIME_TYPES});`
         'user_pref("app.update.enabled", false);',
         'user_pref("app.update.auto", false);',
         'user_pref("app.update.mode", 0);',
