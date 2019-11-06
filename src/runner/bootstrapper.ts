@@ -18,24 +18,135 @@ import parseFileList from '../utils/parse-file-list';
 import resolvePathRelativelyCwd from '../utils/resolve-path-relatively-cwd';
 import loadClientScripts from '../custom-client-scripts/load';
 
+import { Writable as WritableStream } from 'stream';
+import ClientScriptInit from '../custom-client-scripts/client-script-init';
+import BrowserProvider from '../browser/provider';
+
+interface BrowserConnectionGateway {
+
+}
+
+interface TestSource {
+
+}
+
+interface Metadata {
+    [key: string]: string;
+}
+
+type BrowserSource = BrowserConnection | string;
+
+interface ReporterSource {
+    name:    string;
+    output?: string | WritableStream;
+}
+
+interface ReporterPlugin {
+
+}
+
+interface ReporterPluginSource {
+    plugin: ReporterPlugin;
+    outStream?: WritableStream;
+}
+
+interface ReporterPluginFactory {
+    (): ReporterPlugin;
+}
+
+function isReporterPluginFactory<T> (value: T): value is ReporterPluginFactory {
+    return typeof value === 'function';
+}
+
+interface Filter {
+    (testName: string, fixtureName: string, fixturePath: string, testMeta: Metadata, fixtureMeta: Metadata): boolean
+}
+
+interface BrowserInfo {
+    browserName: string;
+    providerName: string;
+    provider: BrowserProvider;
+}
+
+type BrowserInfoSource = BrowserInfo | BrowserConnection;
+
+interface TestSource {
+
+}
+
+interface Fixture {
+    name: string;
+    path: string;
+    meta: Metadata;
+}
+
+interface Test {
+    name:    string;
+    fixture: Fixture;
+    meta:    Metadata;
+}
+
+interface RuntimeResources {
+
+}
+
+interface PromiseSuccess<T> {
+    result: T;
+}
+
+interface PromiseError<E extends Error = Error> {
+    error: E;
+}
+
+type PromiseResult<T, E extends Error = Error> = PromiseSuccess<T> | PromiseError<E>;
+
+function isPromiseError<T, E extends Error = Error>(value: PromiseResult<T, E>): value is PromiseError<E> {
+    return (value as PromiseError<E>).error !== void 0;
+}
+
+interface SeparatedBrowserInfo {
+    remotes: BrowserConnection[];
+    automated: BrowserInfo[];
+}
+
+type PromiseCollection<T> = {
+    [K in keyof T]: Promise<T[K]>
+}
+
+type RuntimeResourcesTuple        = [BrowserSet, Test[], TestedApp];
+type RuntimeResourcePromisesTuple = PromiseCollection<RuntimeResourcesTuple>;
+
 export default class Bootstrapper {
-    constructor (browserConnectionGateway) {
+    private readonly browserConnectionGateway: BrowserConnectionGateway;
+
+    public concurrency: number;
+    public sources: TestSource[];
+    public browsers: BrowserSource[];
+    public reporters: ReporterSource[];
+    public filter?: Filter;
+    public appCommand?: string;
+    public appInitDelay?: number;
+    public tsConfigPath?: string;
+    public clientScripts: ClientScriptInit[];
+    public allowMultipleWindows: boolean;
+
+    constructor (browserConnectionGateway: BrowserConnectionGateway) {
         this.browserConnectionGateway = browserConnectionGateway;
-        this.concurrency              = null;
+        this.concurrency              = 1;
         this.sources                  = [];
         this.browsers                 = [];
         this.reporters                = [];
-        this.filter                   = null;
-        this.appCommand               = null;
-        this.appInitDelay             = null;
-        this.tsConfigPath             = null;
+        this.filter                   = void 0;
+        this.appCommand               = void 0;
+        this.appInitDelay             = void 0;
+        this.tsConfigPath             = void 0;
         this.clientScripts            = [];
         this.allowMultipleWindows     = false;
     }
 
-    static _splitBrowserInfo (browserInfo) {
-        const remotes   = [];
-        const automated = [];
+    static _splitBrowserInfo (browserInfo: BrowserInfoSource[]): SeparatedBrowserInfo {
+        const remotes: BrowserConnection[]  = [];
+        const automated: BrowserInfo[]      = [];
 
         browserInfo.forEach(browser => {
             if (browser instanceof BrowserConnection)
@@ -47,16 +158,16 @@ export default class Bootstrapper {
         return { remotes, automated };
     }
 
-    static async _hasLocalBrowsers (browserInfo) {
+    static async _hasLocalBrowsers (browserInfo: BrowserInfoSource[]): Promise<boolean> {
         for (const browser of browserInfo) {
-            if (await browser.provider.isLocalBrowser(null, browserInfo.browserName))
+            if (await browser.provider.isLocalBrowser(void 0, browser.browserName))
                 return true;
         }
 
         return false;
     }
 
-    static async _checkRequiredPermissions (browserInfo) {
+    static async _checkRequiredPermissions (browserInfo: BrowserInfoSource[]): Promise<void> {
         const hasLocalBrowsers = await Bootstrapper._hasLocalBrowsers(browserInfo);
 
         const { error } = await authenticationHelper(
@@ -76,7 +187,7 @@ export default class Bootstrapper {
         RemoteBrowserProvider.canDetectLocalBrowsers = false;
     }
 
-    async _getBrowserInfo () {
+    async _getBrowserInfo (): Promise<BrowserInfoSource[]> {
         if (!this.browsers.length)
             throw new GeneralError(RUNTIME_ERRORS.browserNotSet);
 
@@ -85,7 +196,7 @@ export default class Bootstrapper {
         return flatten(browserInfo);
     }
 
-    _createAutomatedConnections (browserInfo) {
+    _createAutomatedConnections (browserInfo: BrowserInfo[]) {
         if (!browserInfo)
             return [];
 
@@ -93,7 +204,7 @@ export default class Bootstrapper {
             .map(browser => times(this.concurrency, () => new BrowserConnection(this.browserConnectionGateway, browser, false, this.allowMultipleWindows)));
     }
 
-    async _getBrowserConnections (browserInfo) {
+    async _getBrowserConnections (browserInfo: BrowserInfoSource[]): Promise<BrowserSet> {
         const { automated, remotes } = Bootstrapper._splitBrowserInfo(browserInfo);
 
         if (remotes && remotes.length % this.concurrency)
@@ -106,7 +217,11 @@ export default class Bootstrapper {
         return await BrowserSet.from(browserConnections);
     }
 
-    async _getTests () {
+    _filterTests (tests: Test[], filter: Filter): Test[] {
+        return tests.filter(test => filter(test.name, test.fixture.name, test.fixture.path, test.meta, test.fixture.meta));
+    }
+
+    async _getTests (): Promise<Test[]> {
         const { parsedFileList, compilerOptions } = await this._getCompilerArguments();
 
         if (!parsedFileList.length)
@@ -121,7 +236,7 @@ export default class Bootstrapper {
             tests = testsWithOnlyFlag;
 
         if (this.filter)
-            tests = tests.filter(test => this.filter(test.name, test.fixture.name, test.fixture.path, test.meta, test.fixture.meta));
+            tests = this._filterTests(tests, this.filter);
 
         if (!tests.length)
             throw new GeneralError(RUNTIME_ERRORS.noTestsToRun);
@@ -141,7 +256,7 @@ export default class Bootstrapper {
         return { parsedFileList, compilerOptions };
     }
 
-    async _ensureOutStream (outStream) {
+    async _ensureOutStream (outStream: string | WritableStream): Promise<WritableStream> {
         if (typeof outStream !== 'string')
             return outStream;
 
@@ -152,14 +267,30 @@ export default class Bootstrapper {
         return fs.createWriteStream(fullReporterOutputPath);
     }
 
-    static _addDefaultReporter (reporters) {
+    static _addDefaultReporter (reporters: ReporterSource[]) {
         reporters.push({
-            name: 'spec',
-            file: process.stdout
+            name:   'spec',
+            output: process.stdout
         });
     }
 
-    async _getReporterPlugins () {
+    _requireReporterPluginFactory (reporterName: string): ReporterPluginFactory {
+        try {
+            return require('testcafe-reporter-' + name);
+        }
+        catch (err) {
+            throw new GeneralError(RUNTIME_ERRORS.cannotFindReporterForAlias, name);
+        }
+    }
+
+    _getPluginFactory (reporterFactorySource: string | ReporterPluginFactory): ReporterPluginFactory {
+        if (!isReporterPluginFactory(reporterFactorySource))
+            return this._requireReporterPluginFactory(reporterFactorySource);
+
+        return reporterFactorySource;
+    }
+
+    async _getReporterPlugins (): Promise<ReporterPluginSource[]> {
         const stdoutReporters = filter(this.reporters, r => isUndefined(r.output) || r.output === process.stdout);
 
         if (stdoutReporters.length > 1)
@@ -169,18 +300,9 @@ export default class Bootstrapper {
             Bootstrapper._addDefaultReporter(this.reporters);
 
         return Promise.all(this.reporters.map(async ({ name, output }) => {
-            let pluginFactory = name;
+            let pluginFactory = this._getPluginFactory(name);
 
-            const outStream = await this._ensureOutStream(output);
-
-            if (typeof pluginFactory !== 'function') {
-                try {
-                    pluginFactory = require('testcafe-reporter-' + name);
-                }
-                catch (err) {
-                    throw new GeneralError(RUNTIME_ERRORS.cannotFindReporterForAlias, name);
-                }
-            }
+            const outStream = output ? await this._ensureOutStream(output) : void 0;
 
             return {
                 plugin: pluginFactory(),
@@ -189,26 +311,22 @@ export default class Bootstrapper {
         }));
     }
 
-    async _startTestedApp () {
-        if (this.appCommand) {
-            const testedApp = new TestedApp();
+    async _startTestedApp (): Promise<TestedApp> {
+        const testedApp = new TestedApp();
 
-            await testedApp.start(this.appCommand, this.appInitDelay);
+        await testedApp.start(this.appCommand, this.appInitDelay);
 
-            return testedApp;
-        }
-
-        return null;
+        return testedApp;
     }
 
-    async _canUseParallelBootstrapping (browserInfo) {
-        const isLocalPromises = browserInfo.map(browser => browser.provider.isLocalBrowser(null, browserInfo.browserName));
+    async _canUseParallelBootstrapping (browserInfo: BrowserInfoSource[]): Promise<boolean> {
+        const isLocalPromises = browserInfo.map(browser => browser.provider.isLocalBrowser(void 0, browser.browserName));
         const isLocalBrowsers = await Promise.all(isLocalPromises);
 
         return isLocalBrowsers.every(result => result);
     }
 
-    async _bootstrapSequence (browserInfo) {
+    async _bootstrapSequence (browserInfo: BrowserInfoSource[]): Promise<RuntimeResources> {
         const tests       = await this._getTests();
         const testedApp   = await this._startTestedApp();
         const browserSet  = await this._getBrowserConnections(browserInfo);
@@ -216,48 +334,46 @@ export default class Bootstrapper {
         return { tests, testedApp, browserSet };
     }
 
-    _wrapBootstrappingPromise (promise) {
+    _wrapBootstrappingPromise<T> (promise: Promise<T>): Promise<PromiseResult<T>> {
         return promise
-            .then(result => ({ error: null, result }))
-            .catch(error => ({ result: null, error }));
+            .then(result => ({ error: void 0, result }))
+            .catch(error => ({ result: void 0, error }));
     }
 
-    async _handleBootstrappingError ([browserSetStatus, testsStatus, testedAppStatus]) {
-        if (!browserSetStatus.error)
+    async _checkBootstrappingErrors (browserSetStatus: PromiseResult<BrowserSet>, testsStatus: PromiseResult<Test[]>, testedAppStatus: PromiseResult<TestedApp>): Promise<void> {
+        if (!isPromiseError(browserSetStatus))
             await browserSetStatus.result.dispose();
 
-        if (!testedAppStatus.error && testedAppStatus.result)
+        if (!isPromiseError(browserSetStatus) && !isPromiseError(testedAppStatus) && testedAppStatus.result)
             await testedAppStatus.result.kill();
 
-        if (testsStatus.error)
+        if (isPromiseError(testsStatus))
             throw testsStatus.error;
-        else if (testedAppStatus.error)
+        else if (isPromiseError(testedAppStatus))
             throw testedAppStatus.error;
-        else
+        else if (isPromiseError(browserSetStatus))
             throw browserSetStatus.error;
     }
 
-    async _bootstrapParallel (browserInfo) {
-        let bootstrappingPromises = [
+    async _bootstrapParallel (browserInfo: BrowserInfoSource[]): Promise<RuntimeResources> {
+        const bootstrappingPromises: RuntimeResourcePromisesTuple = [
             this._getBrowserConnections(browserInfo),
             this._getTests(),
             this._startTestedApp()
         ];
 
-        bootstrappingPromises = bootstrappingPromises.map(promise => this._wrapBootstrappingPromise(promise));
+        const bootstrappingResultPromises = bootstrappingPromises.map(promise => this._wrapBootstrappingPromise(promise));
+        const bootstrappingResults        = await Promise.all(bootstrappingResultPromises);
 
-        const bootstrappingStatuses = await Promise.all(bootstrappingPromises);
+        await this._checkBootstrappingErrors(bootstrappingResults[0], bootstrappingResults[1], bootstrappingResults[2]);
 
-        if (bootstrappingStatuses.some(status => status.error))
-            await this._handleBootstrappingError(bootstrappingStatuses);
-
-        const [browserSet, tests, testedApp] = bootstrappingStatuses.map(status => status.result);
+        const [browserSet, tests, testedApp] = bootstrappingResults.map(status => status.result);
 
         return { browserSet, tests, testedApp };
     }
 
     // API
-    async createRunnableConfiguration () {
+    async createRunnableConfiguration (): Promise<RuntimeResources> {
         const reporterPlugins     = await this._getReporterPlugins();
         const commonClientScripts = await loadClientScripts(this.clientScripts);
 
@@ -268,7 +384,7 @@ export default class Bootstrapper {
         const browserInfo = await this._getBrowserInfo();
 
         if (OS.mac)
-            await this._checkRequiredPermissions();
+            await Bootstrapper._checkRequiredPermissions(browserInfo);
 
         if (await this._canUseParallelBootstrapping(browserInfo))
             return { reporterPlugins, ...await this._bootstrapParallel(browserInfo), commonClientScripts };
