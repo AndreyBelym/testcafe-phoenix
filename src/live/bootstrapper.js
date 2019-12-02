@@ -21,7 +21,7 @@ class LiveModeBootstrapper extends Bootstrapper {
 
                 return result;
             })
-            .catch(err => {
+            .catch(async err => {
                 this._restoreRequire();
 
                 Compiler.cleanUp();
