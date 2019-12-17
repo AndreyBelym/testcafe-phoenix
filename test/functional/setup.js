@@ -141,7 +141,7 @@ before(function () {
 
     const { devMode, retryTestPages } = config;
 
-    return createTestCafe(config.testCafe.hostname, config.testCafe.port1, config.testCafe.port2, null, devMode, retryTestPages)
+    return createTestCafe({ hostname: config.testCafe.hostname, port1: config.testCafe.port1, port2: config.testCafe.port2, developmentMode: devMode, retryTestPages, experimentalCompilerService: true })
         .then(function (tc) {
             testCafe = tc;
 
