@@ -28,6 +28,13 @@ class TestRunMock {
 
         return await this.dispatcher.executeCommand({ command, callsite, id: this.id });
     }
+
+    public executeCommandSync  (command: unknown, callsite: unknown): unknown {
+        if (callsite)
+            callsite = prerenderCallsite(callsite);
+
+        return this.executeCommandSync({ command, callsite, id: this.id });
+    }
 }
 
 export default TestRunMock;
