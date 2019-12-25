@@ -1,10 +1,10 @@
 import Configuration from './configuration-base';
-import { castArray } from 'lodash';
-import { getGrepOptions, getSSLOptions } from '../utils/get-options';
+import {castArray} from 'lodash';
+import {getGrepOptions, getSSLOptions} from '../utils/get-options';
 import OPTION_NAMES from './option-names';
 import getFilterFn from '../utils/get-filter-fn';
 import prepareReporters from '../utils/prepare-reporters';
-import { getConcatenatedValuesString, getPluralSuffix } from '../utils/string';
+import {getConcatenatedValuesString, getPluralSuffix} from '../utils/string';
 import renderTemplate from '../utils/render-template';
 import WARNING_MESSAGES from '../notifications/warning-message';
 import resolvePathRelativelyCwd from '../utils/resolve-path-relatively-cwd';
@@ -12,16 +12,17 @@ import resolvePathRelativelyCwd from '../utils/resolve-path-relatively-cwd';
 import {
     DEFAULT_APP_INIT_DELAY,
     DEFAULT_CONCURRENCY_VALUE,
+    DEFAULT_DEVELOPMENT_MODE,
+    DEFAULT_INSPECT_OPTIONS,
+    DEFAULT_RETRY_TEST_PAGES,
+    DEFAULT_SOURCE_DIRECTORIES,
     DEFAULT_SPEED_VALUE,
     DEFAULT_TIMEOUT,
-    DEFAULT_SOURCE_DIRECTORIES,
-    DEFAULT_DEVELOPMENT_MODE,
-    DEFAULT_RETRY_TEST_PAGES,
     STATIC_CONTENT_CACHING_SETTINGS
 } from './default-values';
 
 import OptionSource from './option-source';
-import { Dictionary, FilterOption, ReporterOption, StaticContentCachingOptions } from './interfaces';
+import {Dictionary, FilterOption, ReporterOption, StaticContentCachingOptions} from './interfaces';
 
 const CONFIGURATION_FILENAME = '.testcaferc.json';
 
@@ -194,6 +195,8 @@ export default class TestCafeConfiguration extends Configuration {
         this._ensureOptionWithValue(OPTION_NAMES.src, DEFAULT_SOURCE_DIRECTORIES, OptionSource.Configuration);
         this._ensureOptionWithValue(OPTION_NAMES.developmentMode, DEFAULT_DEVELOPMENT_MODE, OptionSource.Configuration);
         this._ensureOptionWithValue(OPTION_NAMES.retryTestPages, DEFAULT_RETRY_TEST_PAGES, OptionSource.Configuration);
+
+        this._ensureOptionWithValue(OPTION_NAMES.inspect, DEFAULT_INSPECT_OPTIONS, OptionSource.Configuration);
 
         this._ensureScreenshotPath();
     }

@@ -100,6 +100,7 @@
     "moment-duration-format-commonjs": "^1.0.0",
     "mustache": "^2.1.2",
     "nanoid": "^1.0.1",
+    "node-inspect": "^1.11.6",
     "node-version": "^1.0.0",
     "os-family": "^1.0.0",
     "parse5": "^1.5.0",

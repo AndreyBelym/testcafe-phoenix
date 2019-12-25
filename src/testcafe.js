@@ -32,9 +32,16 @@ export default class TestCafe {
         this.runners                  = [];
         this.configuration            = configuration;
 
-        this.compilerService = configuration.getOption('experimentalCompilerService') ? new CompilerHost() : void 0;
+        this.compilerService = this._createCompilerService();
 
         this._registerAssets(options.developmentMode);
+    }
+
+    _createCompilerService () {
+        if (!this.configuration.getOption(OPTION_NAMES.experimentalCompilerService))
+            return void 0;
+
+        return new CompilerHost(this.configuration.getOption(OPTION_NAMES.inspect));
     }
 
     _registerAssets (developmentMode) {

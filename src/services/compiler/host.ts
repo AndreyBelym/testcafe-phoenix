@@ -13,6 +13,7 @@ import { Test } from '../../api/structure/interfaces';
 
 
 const SERVICE_PATH = require.resolve('./service');
+const INSPECT_ARG  = ({ host, port}) => `--inspect=${host}:${port}`;
 
 interface RuntimeResources {
     service: ChildProcess;
@@ -23,11 +24,19 @@ interface TestFunction {
     (testRun: TestRun): Promise<unknown>;
 }
 
+interface InspectOptions {
+    port: number;
+    host: string;
+}
+
 export default class CompilerHost extends EventEmitter implements CompilerProtocol {
+    private inspectOptions: InspectOptions;
     private runtime: Promise<RuntimeResources|undefined>;
 
-    public constructor () {
+    public constructor (inspectOptions: InspectOptions) {
         super();
+
+        this.inspectOptions = inspectOptions;
 
         this.runtime = Promise.resolve(void 0);
     }
@@ -37,6 +46,9 @@ export default class CompilerHost extends EventEmitter implements CompilerProtoc
         proxy.register(this.ready, this);
     }
 
+    private _getInspectArguments (): string[] {
+        return [INSPECT_ARG(this.inspectOptions)];
+    }
 
     private async _init (runtime: Promise<RuntimeResources|undefined>): Promise<RuntimeResources|undefined> {
         const resolvedRuntime = await runtime;
@@ -45,7 +57,7 @@ export default class CompilerHost extends EventEmitter implements CompilerProtoc
             return resolvedRuntime;
 
         try {
-            const service = spawn(process.argv0, [SERVICE_PATH], { stdio: [0, 1, 2, 'pipe', 'pipe', 'pipe'] });
+            const service = spawn(process.argv0, [...this._getInspectArguments(), SERVICE_PATH], { stdio: [0, 1, 2, 'pipe', 'pipe', 'pipe'] });
 
             // HACK: Node.js definition are not correct when additional I/O channels are sp
             const stdio = service.stdio as any;

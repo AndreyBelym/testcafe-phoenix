@@ -19,6 +19,7 @@ export default {
     quarantineMode:              'quarantineMode',
     debugMode:                   'debugMode',
     debugOnFail:                 'debugOnFail',
+    inspect:                     'inspect',
     skipUncaughtErrors:          'skipUncaughtErrors',
     stopOnFirstFail:             'stopOnFirstFail',
     selectorTimeout:             'selectorTimeout',
