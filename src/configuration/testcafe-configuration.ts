@@ -98,6 +98,8 @@ export default class TestCafeConfiguration extends Configuration {
     }
 
     public get startOptions (): TestCafeStartOptions {
+        this._ensureOptionWithValue(OPTION_NAMES.inspect, DEFAULT_INSPECT_OPTIONS, OptionSource.Configuration);
+
         const result: TestCafeStartOptions = {
             hostname: this.getOption('hostname') as string,
             port1:    this.getOption('port1') as number,
@@ -195,8 +197,6 @@ export default class TestCafeConfiguration extends Configuration {
         this._ensureOptionWithValue(OPTION_NAMES.src, DEFAULT_SOURCE_DIRECTORIES, OptionSource.Configuration);
         this._ensureOptionWithValue(OPTION_NAMES.developmentMode, DEFAULT_DEVELOPMENT_MODE, OptionSource.Configuration);
         this._ensureOptionWithValue(OPTION_NAMES.retryTestPages, DEFAULT_RETRY_TEST_PAGES, OptionSource.Configuration);
-
-        this._ensureOptionWithValue(OPTION_NAMES.inspect, DEFAULT_INSPECT_OPTIONS, OptionSource.Configuration);
 
         this._ensureScreenshotPath();
     }

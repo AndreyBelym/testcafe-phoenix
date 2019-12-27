@@ -41,6 +41,7 @@ export default class TestCafe {
         if (!this.configuration.getOption(OPTION_NAMES.experimentalCompilerService))
             return void 0;
 
+        console.log(this.configuration);
         return new CompilerHost(this.configuration.getOption(OPTION_NAMES.inspect));
     }
 
@@ -114,8 +115,8 @@ export default class TestCafe {
 
         await browserProviderPool.dispose();
 
-        if (this.compilerService)
-            this.compilerService.stop();
+        // if (this.compilerService)
+        //     this.compilerService.stop();
 
         this.browserConnectionGateway.close();
         this.proxy.close();

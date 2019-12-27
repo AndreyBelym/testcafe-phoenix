@@ -13,7 +13,7 @@ import { Test } from '../../api/structure/interfaces';
 
 
 const SERVICE_PATH = require.resolve('./service');
-const INSPECT_ARG  = ({ host, port}) => `--inspect=${host}:${port}`;
+const INSPECT_ARG  = ({ host, port }: InspectOptions) => `--inspect=${host}:${port}`;
 
 interface RuntimeResources {
     service: ChildProcess;
@@ -70,6 +70,7 @@ export default class CompilerHost extends EventEmitter implements CompilerProtoc
             return { proxy, service };
         }
         catch (e) {
+            console.log(e);
             return void 0;
         }
     }
@@ -84,6 +85,7 @@ export default class CompilerHost extends EventEmitter implements CompilerProtoc
     }
 
     public async init (): Promise<void> {
+        console.log('init');
         this.runtime = this._init(this.runtime);
 
         await this.runtime;
@@ -91,6 +93,7 @@ export default class CompilerHost extends EventEmitter implements CompilerProtoc
 
 
     public async stop (): Promise<void> {
+        console.log('stop');
         const { service } = await this._getRuntime();
 
         service.kill();
@@ -130,6 +133,8 @@ export default class CompilerHost extends EventEmitter implements CompilerProtoc
     }
 
     public async getTests ({ sourceList, compilerOptions }: CompilerArguments): Promise<Test[]> {
+        console.log('get tests');
+
         const { proxy } = await this._getRuntime();
 
         const units = await proxy.call(this.getTests, { sourceList, compilerOptions });
